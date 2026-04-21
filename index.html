@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#04091a">
+  <title>Watsurenaikatsudou Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<div class="hdr">
+  <div class="hdr-logo">W</div>
+  <div class="hdr-info">
+    <h1>Watsurenaikatsudou Activity Dashboard</h1>
+    <p>Sistem Monitoring Aktivitas &amp; Temuan Harian</p>
+  </div>
+  <!-- Cloud status indicator -->
+  <div class="conn-wrap" id="conn-wrap">
+    <span class="conn-dot" id="conn-dot"></span>
+    <span class="conn-lbl" id="conn-lbl">Connecting...</span>
+  </div>
+  <div class="hdr-date" id="hdr-date"></div>
+</div>
+
+<!-- ── TAB NAVIGATION ──────────────────────────────────────── -->
+<nav class="tabs">
+  <button class="tab on"  onclick="go('form')"      id="tab-form">      📝 Form Input</button>
+  <button class="tab"     onclick="go('rekap')"     id="tab-rekap">     📋 Rekap Data</button>
+  <button class="tab"     onclick="go('dashboard')" id="tab-dashboard"> 📊 Dashboard</button>
+  <button class="tab"     onclick="go('top')"       id="tab-top">       🔍 Top Problem</button>
+</nav>
+
+<!-- ── MAIN CONTENT ────────────────────────────────────────── -->
+<main id="app"></main>
+
+<!-- ── MIGRATE MODAL (localStorage → cloud) ────────────────── -->
+<div class="ov" id="ov-migrate">
+  <div class="modal" style="max-width:480px">
+    <div class="mh">
+      <h3>📦 Data Lama Terdeteksi</h3>
+      <button class="mcl" onclick="dismissMigrate()">✕</button>
+    </div>
+    <div class="mb">
+      <p style="margin-bottom:14px;color:var(--txt2);line-height:1.7">
+        Ditemukan <strong id="migrate-count" style="color:var(--txt)">0</strong> record
+        di localStorage browser yang belum tersimpan ke server cloud.
+      </p>
+      <p style="color:var(--txt2);line-height:1.7">
+        Pindahkan sekarang agar data tersimpan permanen dan bisa diakses dari semua device?
+      </p>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="dismissMigrate()">Abaikan</button>
+      <button class="btn btn-s" onclick="doMigrate()">☁️ Pindahkan ke Cloud</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PREVIEW MODAL ───────────────────────────────────────── -->
+<div class="ov" id="ov-preview">
+  <div class="modal">
+    <div class="mh">
+      <h3>👁 Preview — Konfirmasi Sebelum Inject</h3>
+      <button class="mcl" onclick="closeOv('ov-preview')">✕</button>
+    </div>
+    <div class="mb" id="preview-body"></div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeOv('ov-preview')">← Kembali Edit</button>
+      <button class="btn btn-s" onclick="doSubmit()">✓ Inject Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LIGHTBOX ─────────────────────────────────────────────── -->
+<div class="lb" id="lb" onclick="this.className='lb'">
+  <img id="lb-img" src="" alt="">
+</div>
+
+<!-- ── TOAST ────────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── SCRIPTS ──────────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/chartHelper.js"></script>
+<script src="js/formInput.js"></script>
+<script src="js/rekapData.js"></script>
+<script src="js/dashboard.js"></script>
+
+<script>
+/* ── Constants ───────────────────────────────────────────────── */
+const DAYS     = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const MONTHS   = ['Januari','Februari','Maret','April','Mei','Juni',
+                  'Juli','Agustus','September','Oktober','November','Desember'];
+const TM       = { 1:'Tidak Ada Temuan', 2:'CM Tidak Jalan',  3:'Tidak Ada Cek'  };
+const TM_SHORT = { 1:'Tdk Ada Temuan',   2:'CM Tdk Jalan',    3:'Tdk Ada Cek'    };
+const SC       = { Selesai:'ss', Proses:'sp', Belum:'sbl' };
+const TC       = { 1:'tb1', 2:'tb2', 3:'tb3' };
+
+/* ── Utils ───────────────────────────────────────────────────── */
+function hari(ds)   { return DAYS[new Date(ds + 'T00:00:00').getDay()]; }
+function fmtD(ds)   {
+  if (!ds) return '-';
+  const d = new Date(ds + 'T00:00:00');
+  return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+}
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function toast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.innerHTML = (ok ? '✅' : '❌') + ' ' + msg;
+  t.className = 'toast on';
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => (t.className = 'toast'), 3500);
+}
+
+function lightbox(src) {
+  document.getElementById('lb-img').src = src;
+  document.getElementById('lb').className = 'lb on';
+}
+
+function closeOv(id) { document.getElementById(id).className = 'ov'; }
+
+function compressImg(file, maxW = 900, q = 0.75) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = reject;
+    fr.onload  = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload  = () => {
+        let w = img.width, h = img.height;
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', q));
+      };
+      img.src = e.target.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* ── Page loading helpers ────────────────────────────────────── */
+function pageLoader(msg = 'Memuat data...') {
+  document.getElementById('app').innerHTML = `
+    <div class="page-loading">
+      <div class="spinner"></div>
+      <p>${msg}</p>
+    </div>`;
+}
+
+function showError(msg, tab) {
+  document.getElementById('app').innerHTML = `
+    <div class="page-loading">
+      <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+      <p style="color:var(--red);margin-bottom:16px">${msg}</p>
+      <p style="color:var(--txt3);font-size:12px;margin-bottom:16px">
+        Pastikan server sudah dijalankan dengan <code>start-server.bat</code>
+      </p>
+      <button class="btn btn-p" onclick="go('${tab}')">↺ Coba Lagi</button>
+    </div>`;
+}
+
+/* ── Cloud status indicator ──────────────────────────────────── */
+async function refreshStatus() {
+  const dot = document.getElementById('conn-dot');
+  const lbl = document.getElementById('conn-lbl');
+  try {
+    const s = await DB.status();
+    dot.className = 'conn-dot online';
+    lbl.textContent = `☁️ Online · ${s.count} record`;
+  } catch {
+    dot.className = 'conn-dot offline';
+    lbl.textContent = '⚠️ Server offline';
+  }
+}
+
+/* ── Migration: localStorage → cloud ────────────────────────── */
+function checkMigration() {
+  const old = localStorage.getItem('wna_v1');
+  if (!old) return;
+  try {
+    const records = JSON.parse(old);
+    if (!records.length) return;
+    document.getElementById('migrate-count').textContent = records.length;
+    document.getElementById('ov-migrate').className = 'ov on';
+  } catch {}
+}
+
+function dismissMigrate() {
+  closeOv('ov-migrate');
+  localStorage.removeItem('wna_v1');
+  localStorage.removeItem('wna_ctr');
+}
+
+async function doMigrate() {
+  const old = localStorage.getItem('wna_v1');
+  if (!old) { dismissMigrate(); return; }
+  const records = JSON.parse(old);
+  const ctr = parseInt(localStorage.getItem('wna_ctr') || records.length);
+
+  const btn = document.querySelector('#ov-migrate .btn-s');
+  btn.disabled = true; btn.textContent = '⏳ Memindahkan...';
+
+  try {
+    await DB.restore({ records, counter: ctr });
+    toast(`${records.length} record berhasil dipindahkan ke cloud! ☁️`);
+    dismissMigrate();
+    refreshStatus();
+    go(_tab);
+  } catch (err) {
+    toast('Migrasi gagal: ' + err.message, false);
+    btn.disabled = false; btn.innerHTML = '☁️ Pindahkan ke Cloud';
+  }
+}
+
+/* ── Router ──────────────────────────────────────────────────── */
+let _tab = 'form';
+const _ROUTES = { form: renderForm, rekap: renderRekap, dashboard: renderDash, top: renderTop };
+
+function go(tab) {
+  _tab = tab;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+  document.getElementById('tab-' + tab).classList.add('on');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const result = _ROUTES[tab]();
+  if (result && result.catch) result.catch(err => showError(err.message, tab));
+}
+
+window.addEventListener('resize', () => {
+  if (_tab === 'dashboard') renderDash();
+  if (_tab === 'top')       renderTop();
+});
+
+/* ── Clock ───────────────────────────────────────────────────── */
+function _clock() {
+  const d  = new Date();
+  const el = document.getElementById('hdr-date');
+  if (el) el.innerHTML =
+    DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear() +
+    '<br>' + d.toLocaleTimeString('id-ID');
+}
+
+/* ── Bootstrap ───────────────────────────────────────────────── */
+_clock();
+setInterval(_clock, 1000);
+setInterval(refreshStatus, 30000);   // re-check connection every 30s
+
+refreshStatus();
+go('form');
+checkMigration();                     // offer to migrate old localStorage data
+</script>
+</body>
+</html>
