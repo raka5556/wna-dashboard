@@ -160,7 +160,7 @@ async function exportCSV() {
     esc(r.picPerbaikan || ''), esc(r.deskripsiPerbaikan), esc(r.approved ? 'Ya' : 'Tidak'),
   ].join(','));
 
-  const csv  = [HDR.join(','), ...rows].join('\n');
+  const csv  = ['sep=,', HDR.join(','), ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const a    = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(blob),
