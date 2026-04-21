@@ -40,6 +40,7 @@ async function renderRekap() {
         <button class="btn btn-g btn-sm" onclick="rfBulan='';renderRekap()">↺ Reset</button>
         <div style="flex:1"></div>
         <button class="btn btn-g btn-sm" onclick="exportCSV()">📥 CSV</button>
+        <button class="btn btn-g btn-sm" onclick="exportPDF()">🖨️ PDF</button>
         <button class="btn btn-g btn-sm" onclick="DB.downloadBackup()" title="Download backup JSON">☁️ Backup</button>
         <button class="btn btn-g btn-sm" onclick="openRestore()" title="Restore dari file backup">📂 Restore</button>
       </div>
@@ -167,4 +168,77 @@ async function exportCSV() {
     download: `wna_${rfTahun || 'all'}.csv`,
   });
   a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ── PDF EXPORT ──────────────────────────────────────────── */
+async function exportPDF() {
+  let data;
+  try { data = await DB.byYearMonth(rfTahun, rfBulan); }
+  catch (err) { toast(err.message, false); return; }
+  if (!data.length) { toast('Tidak ada data', false); return; }
+  data.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+
+  const period = rfBulan ? `${MONTHS[rfBulan - 1]} ${rfTahun}` : `Tahun ${rfTahun}`;
+
+  const rows = data.map(r => {
+    const probEntry = PROBLEMS.find(p => p.name === r.problem);
+    const fotoP  = probEntry ? `<img src="${probEntry.img}">` : '-';
+    const fotoA  = r.fotoActivity ? `<img src="${r.fotoActivity}">` : '-';
+    const fotoB  = r.fotoBukti    ? `<img src="${r.fotoBukti}">` : '-';
+    const status = { Selesai: '✅ Selesai', Proses: '🔧 Proses', Belum: '❌ Belum' }[r.statusPerbaikan] || r.statusPerbaikan;
+    const temuan = { 1: 'Tdk Temuan', 2: 'CM Tdk Jalan', 3: 'Tdk Ada Cek' }[r.pilihanTemuan] || r.pilihanTemuan;
+    return `<tr>
+      <td>${r.id}</td>
+      <td>${r.pic}</td>
+      <td>${fmtD(r.tanggal)}</td>
+      <td>${r.line}</td>
+      <td>${r.problem}</td>
+      <td class="img-cell">${fotoP}</td>
+      <td class="img-cell">${fotoA}</td>
+      <td>${temuan}</td>
+      <td>${r.deskripsi || '-'}</td>
+      <td>${status}</td>
+      <td>${r.picPerbaikan || '-'}</td>
+      <td>${r.deskripsiPerbaikan || '-'}</td>
+      <td class="img-cell">${fotoB}</td>
+      <td>${r.approved ? '✅ Ya' : '-'}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head>
+  <meta charset="utf-8">
+  <title>Rekap WNA — ${period}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 9px; color: #111; padding: 12px; }
+    h1 { font-size: 13px; margin-bottom: 4px; }
+    p  { font-size: 9px; color: #555; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 4px 5px; vertical-align: middle; }
+    th { background: #1e3a5f; color: #fff; font-size: 8.5px; text-align: center; }
+    tr:nth-child(even) { background: #f5f7fa; }
+    .img-cell { text-align: center; width: 60px; }
+    .img-cell img { max-width: 56px; max-height: 56px; object-fit: cover; border-radius: 3px; }
+    @media print {
+      @page { size: A3 landscape; margin: 10mm; }
+      body { padding: 0; }
+    }
+  </style>
+  </head><body>
+  <h1>📋 Rekap Data Aktivitas — ${period}</h1>
+  <p>Dicetak: ${new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'})} &nbsp;|&nbsp; ${data.length} record</p>
+  <table>
+    <thead><tr>
+      <th>ID</th><th>PIC</th><th>Tanggal</th><th>Line</th><th>Problem</th>
+      <th>Foto Prob.</th><th>Foto Aktv.</th><th>Temuan</th><th>Deskripsi</th>
+      <th>Status</th><th>PIC Prb.</th><th>Desk. Perbaikan</th><th>Foto Bukti</th><th>Approved</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <script>window.onload = () => { window.print(); }<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 }
