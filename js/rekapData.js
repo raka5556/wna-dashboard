@@ -14,7 +14,10 @@ async function renderRekap() {
   } catch (err) {
     showError(err.message, 'rekap'); return;
   }
-  rows.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+  rows.sort((a, b) => {
+    const n = s => parseInt(s.replace(/\D/g, '')) || 0;
+    return n(a.id) - n(b.id);
+  });
 
   const YEARS = [2024, 2025, 2026, 2027];
   const yOpts = YEARS.map(y =>
