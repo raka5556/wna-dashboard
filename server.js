@@ -104,6 +104,12 @@ async function initPgDB() {
       key     TEXT PRIMARY KEY,
       value   BIGINT NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS wna_backups (
+      id         SERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      label      TEXT,
+      data       JSONB NOT NULL
+    );
     INSERT INTO wna_meta (key, value) VALUES ('counter', 0)
       ON CONFLICT (key) DO NOTHING;
   `);
@@ -172,6 +178,28 @@ async function initPgDB() {
   const { count } = await db.status();
   console.log('  🐘  Storage : PostgreSQL (Railway)');
   console.log(`  📊  Records : ${count} data tersimpan`);
+
+  // Auto-backup harian ke tabel wna_backups (simpan 7 hari)
+  async function autoBackupPg() {
+    try {
+      const snap = await db.backup();
+      const label = new Date().toISOString().split('T')[0];
+      await pool.query(
+        'INSERT INTO wna_backups (label, data) VALUES ($1, $2)',
+        [label, JSON.stringify(snap)]
+      );
+      await pool.query(`
+        DELETE FROM wna_backups
+        WHERE id NOT IN (SELECT id FROM wna_backups ORDER BY created_at DESC LIMIT 7)
+      `);
+      console.log(`  💾  Auto-backup: ${label} (${snap.records.length} record)`);
+    } catch (e) {
+      console.error('  ⚠️  Auto-backup gagal:', e.message);
+    }
+  }
+
+  autoBackupPg();
+  setInterval(autoBackupPg, 24 * 60 * 60 * 1000); // setiap 24 jam
 }
 
 /* ══════════════════════════════════════════════════════════
