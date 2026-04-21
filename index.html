@@ -9,6 +9,7 @@
   <meta name="theme-color" content="#04091a">
   <title>Watsurenaikatsudou Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="preload" as="image" href="img/Approved_Foreman.png">
 </head>
 <body>
 
@@ -260,6 +261,7 @@ setInterval(refreshStatus, 30000);   // re-check connection every 30s
 refreshStatus();
 go('form');
 checkMigration();                     // offer to migrate old localStorage data
+_preloadProbImages();                 // cache all 29 problem images on startup
 </script>
 </body>
 </html>

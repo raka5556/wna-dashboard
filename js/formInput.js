@@ -39,7 +39,6 @@ let _tmpFD = {};
 
 /* ── RENDER ──────────────────────────────────────────────── */
 function renderForm() {
-  setTimeout(_preloadProbImages, 500);
   document.getElementById('app').innerHTML = `
   <form id="frm" onsubmit="return false">
 
