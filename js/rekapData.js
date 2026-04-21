@@ -154,10 +154,10 @@ async function exportCSV() {
   const HDR  = ['ID','PIC','Tanggal','Hari','Line','Problem','Pilihan Temuan',
                 'Deskripsi','Status Perbaikan','PIC Perbaikan','Deskripsi Perbaikan','Approved'];
   const rows = data.map(r => [
-    r.id, r.pic, r.tanggal, r.hari, r.line,
-    esc(r.problem), `${r.pilihanTemuan} - ${TM[r.pilihanTemuan]}`,
-    esc(r.deskripsi), r.statusPerbaikan,
-    r.picPerbaikan || '', esc(r.deskripsiPerbaikan), r.approved ? 'Ya' : 'Tidak',
+    esc(r.id), esc(r.pic), esc(r.tanggal), esc(r.hari), esc(r.line),
+    esc(r.problem), esc(`${r.pilihanTemuan} - ${TM[r.pilihanTemuan]}`),
+    esc(r.deskripsi), esc(r.statusPerbaikan),
+    esc(r.picPerbaikan || ''), esc(r.deskripsiPerbaikan), esc(r.approved ? 'Ya' : 'Tidak'),
   ].join(','));
 
   const csv  = [HDR.join(','), ...rows].join('\n');
