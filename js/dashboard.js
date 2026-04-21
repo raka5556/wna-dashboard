@@ -2,7 +2,8 @@
  * dashboard.js — Dashboard Monitoring + Top Problem (async cloud version)
  */
 
-let dyear = new Date().getFullYear();
+let dyear  = new Date().getFullYear();
+let dmonth = 0; // 0 = semua bulan
 
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD
@@ -13,7 +14,10 @@ async function renderDash() {
   try { all = await DB.all(); }
   catch (err) { showError(err.message, 'dashboard'); return; }
 
-  const yd    = all.filter(r => r.tanggal.startsWith(String(dyear)));
+  const byYear = all.filter(r => r.tanggal.startsWith(String(dyear)));
+  const yd     = dmonth
+    ? byYear.filter(r => r.tanggal.split('-')[1] === pad(dmonth))
+    : byYear;
   const total = yd.length;
   const t1    = yd.filter(r => r.pilihanTemuan   === 1).length;
   const t2    = yd.filter(r => r.pilihanTemuan   === 2).length;
@@ -23,21 +27,28 @@ async function renderDash() {
   const bel   = yd.filter(r => r.statusPerbaikan === 'Belum').length;
   const pct   = total ? Math.round(sel / total * 100) : 0;
   const lines = [...new Set(all.map(r => r.line))].sort();
-  const ms    = _buildMonthStats(yd);
+  const ms    = _buildMonthStats(byYear);
   const allYrs= [...new Set(all.map(r => r.tanggal.split('-')[0]))].sort();
 
   const yOpts = [2024,2025,2026,2027].map(y =>
     `<option value="${y}"${y==dyear?' selected':''}>${y}</option>`).join('');
+  const mOpts = `<option value="0"${!dmonth?' selected':''}>Semua Bulan</option>` +
+    MONTHS.map((m, i) =>
+      `<option value="${i+1}"${dmonth===i+1?' selected':''}>${m}</option>`
+    ).join('');
+
+  const periodLabel = dmonth ? `${MONTHS[dmonth-1]} ${dyear}` : `Tahun ${dyear}`;
 
   document.getElementById('app').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
       <h2 style="font-size:16px;font-weight:600">📊 Dashboard Monitoring</h2>
       <select onchange="dyear=parseInt(this.value);renderDash()" style="width:auto">${yOpts}</select>
+      <select onchange="dmonth=parseInt(this.value);renderDash()" style="width:auto">${mOpts}</select>
       <span class="cloud-tag">☁️ Cloud — ${all.length} total record</span>
     </div>
 
     <div class="kgrid">
-      <div class="kcard kb"><div class="ki">📊</div><div class="kv">${total}</div><div class="kl">Total Aktivitas ${dyear}</div></div>
+      <div class="kcard kb"><div class="ki">📊</div><div class="kv">${total}</div><div class="kl">Total Aktivitas ${periodLabel}</div></div>
       <div class="kcard kg"><div class="ki">✅</div><div class="kv">${t1}</div><div class="kl">Tidak Ada Temuan</div></div>
       <div class="kcard kr"><div class="ki">🔧</div><div class="kv">${t2}</div><div class="kl">CM Tidak Jalan</div></div>
       <div class="kcard ky"><div class="ki">⚠️</div><div class="kv">${t3}</div><div class="kl">Tidak Ada Cek</div></div>
@@ -55,7 +66,7 @@ async function renderDash() {
         </table></div>
       </div>
       <div class="card">
-        <div class="ch"><h2>🏭 Status per Line ${dyear}</h2></div>
+        <div class="ch"><h2>🏭 Status per Line — ${periodLabel}</h2></div>
         <div class="twrap"><table>
           <thead><tr><th>Line</th><th>Total</th><th>Selesai</th><th>Proses</th><th>Belum</th><th>Progress</th></tr></thead>
           <tbody>${_lineRows(lines, yd)}</tbody>
@@ -74,7 +85,7 @@ async function renderDash() {
 
     <div class="cgrid">
       <div class="cwrap"><div class="ctitle">📊 Aktivitas Bulanan ${dyear}</div><canvas id="ch-month"></canvas></div>
-      <div class="cwrap"><div class="ctitle">📉 Distribusi Temuan &amp; Status ${dyear}</div><canvas id="ch-status"></canvas></div>
+      <div class="cwrap"><div class="ctitle">📉 Distribusi Temuan &amp; Status — ${periodLabel}</div><canvas id="ch-status"></canvas></div>
     </div>`;
 
   requestAnimationFrame(() => {
@@ -103,7 +114,7 @@ function _buildMonthStats(yd) {
 function _monthRows(ms) {
   const active = ms.filter(m => m.tot > 0);
   if (!active.length) return `<tr><td colspan="9"><div class="empty"><div class="ei">📅</div>Belum ada data</div></td></tr>`;
-  return active.map(m => `<tr>
+  return active.map(m => `<tr${dmonth === m.m ? ' style="outline:2px solid var(--acc);outline-offset:-2px"' : ''}>
     <td>${MONTHS[m.m-1]}</td><td><strong>${m.tot}</strong></td>
     <td><span class="tb tb1">${m.t1}</span></td><td><span class="tb tb2">${m.t2}</span></td>
     <td><span class="tb tb3">${m.t3}</span></td><td><span class="sb ss">${m.sel}</span></td>
