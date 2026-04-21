@@ -568,6 +568,7 @@ input[type="checkbox"] {
   max-height: 300px;
   object-fit: contain;
   border-radius: 6px;
+  transition: opacity 0.25s;
 }
 
 /* ── CLOUD STATUS INDICATOR ──────────────────────────────── */

@@ -39,6 +39,7 @@ let _tmpFD = {};
 
 /* ── RENDER ──────────────────────────────────────────────── */
 function renderForm() {
+  setTimeout(_preloadProbImages, 500);
   document.getElementById('app').innerHTML = `
   <form id="frm" onsubmit="return false">
 
@@ -195,8 +196,19 @@ function showProbImg(val) {
   const img  = document.getElementById('prob-img');
   if (!val) { wrap.style.display = 'none'; return; }
   const p = PROBLEMS.find(p => p.name === val);
-  if (p) { img.src = p.img; wrap.style.display = 'block'; }
-  else   { wrap.style.display = 'none'; }
+  if (p) {
+    wrap.style.display = 'block';
+    img.style.opacity = '0.2';
+    img.onload = () => { img.style.opacity = '1'; };
+    img.onerror = () => { img.style.opacity = '1'; };
+    img.src = p.img;
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function _preloadProbImages() {
+  PROBLEMS.forEach(p => { const i = new Image(); i.src = p.img; });
 }
 
 /* ── COLLECT & VALIDATE ──────────────────────────────────── */
@@ -284,6 +296,7 @@ async function doSubmit() {
       picPerbaikan:      d.picPrb,
       deskripsiPerbaikan: d.deskPrb,
     });
+    if (btn) { btn.disabled = false; btn.innerHTML = '✓ Inject Data'; }
     closeOv('ov-preview');
     toast('Data tersimpan ke cloud ☁️');
     resetFrm();
