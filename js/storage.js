@@ -8,6 +8,15 @@
 const DB = {
   BASE: '/api',
 
+  _cache: null,
+  _cacheTs: 0,
+  _cacheTTL: 30_000,
+
+  _invalidate() {
+    this._cache = null;
+    this._cacheTs = 0;
+  },
+
   /* Fetch helper with error unwrapping */
   async _fetch(path, opts = {}) {
     const res = await fetch(this.BASE + path, {
@@ -21,30 +30,41 @@ const DB = {
     return res.json();
   },
 
-  /** Return all records (array). */
-  all() {
-    return this._fetch('/records');
+  /** Return all records (array), cached for 30 s. */
+  async all() {
+    if (this._cache && Date.now() - this._cacheTs < this._cacheTTL) {
+      return this._cache;
+    }
+    this._cache = await this._fetch('/records');
+    this._cacheTs = Date.now();
+    return this._cache;
   },
 
   /** Add a record. Returns the saved record with server-assigned ID. */
-  add(record) {
-    return this._fetch('/records', {
+  async add(record) {
+    const result = await this._fetch('/records', {
       method: 'POST',
       body: JSON.stringify(record),
     });
+    this._invalidate();
+    return result;
   },
 
   /** Partially update a record by ID. */
-  upd(id, updates) {
-    return this._fetch('/records/' + encodeURIComponent(id), {
+  async upd(id, updates) {
+    const result = await this._fetch('/records/' + encodeURIComponent(id), {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
+    this._invalidate();
+    return result;
   },
 
   /** Delete a record by ID. */
-  del(id) {
-    return this._fetch('/records/' + encodeURIComponent(id), { method: 'DELETE' });
+  async del(id) {
+    const result = await this._fetch('/records/' + encodeURIComponent(id), { method: 'DELETE' });
+    this._invalidate();
+    return result;
   },
 
   /** Filter by year and optionally month (client-side after full fetch). */
@@ -69,10 +89,12 @@ const DB = {
   },
 
   /** Restore database from a parsed JSON object. */
-  restore(dbObject) {
-    return this._fetch('/restore', {
+  async restore(dbObject) {
+    const result = await this._fetch('/restore', {
       method: 'POST',
       body: JSON.stringify(dbObject),
     });
+    this._invalidate();
+    return result;
   },
 };
