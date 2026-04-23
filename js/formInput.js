@@ -111,7 +111,7 @@ function renderForm() {
               Klik atau tap untuk pilih foto<br>
               <small style="color:var(--txt3)">JPG / PNG — maks 5 MB</small>
             </div>
-            <input type="file" id="f-foto" accept="image/*" capture="environment"
+            <input type="file" id="f-foto" accept="image/*"
                    onchange="handleImg(this,'prev-act','fi-act','ft-act')">
           </div>
           <img id="prev-act" class="prev" alt="">
@@ -162,7 +162,7 @@ function renderForm() {
               Klik atau tap untuk pilih foto bukti<br>
               <small style="color:var(--txt3)">JPG / PNG — maks 5 MB (opsional)</small>
             </div>
-            <input type="file" id="f-bukti" accept="image/*" capture="environment"
+            <input type="file" id="f-bukti" accept="image/*"
                    onchange="handleImg(this,'prev-bkt','fi-bkt','ft-bkt')">
           </div>
           <img id="prev-bkt" class="prev" alt="">
