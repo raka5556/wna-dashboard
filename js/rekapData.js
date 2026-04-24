@@ -4,6 +4,7 @@
 
 let rfBulan = '';
 let rfTahun = new Date().getFullYear();
+let _wnaRows = [];
 
 /* ── RENDER ──────────────────────────────────────────────── */
 async function renderRekap() {
@@ -18,6 +19,7 @@ async function renderRekap() {
     const n = s => parseInt(s.replace(/\D/g, '')) || 0;
     return n(a.id) - n(b.id);
   });
+  _wnaRows = rows;
 
   const YEARS = [2024, 2025, 2026, 2027];
   const yOpts = YEARS.map(y =>
@@ -43,6 +45,7 @@ async function renderRekap() {
         <button class="btn btn-g btn-sm" onclick="rfBulan='';renderRekap()">↺ Reset</button>
         <div style="flex:1"></div>
         <button class="btn btn-g btn-sm" onclick="exportCSV()">📥 CSV</button>
+        <button class="btn btn-g btn-sm" onclick="exportXLSX()">📊 XLSX</button>
         <button class="btn btn-g btn-sm" onclick="exportPDF()">🖨️ PDF</button>
         <button class="btn btn-g btn-sm" onclick="DB.downloadBackup()" title="Download backup JSON">☁️ Backup</button>
         <button class="btn btn-g btn-sm" onclick="openRestore()" title="Restore dari file backup">📂 Restore</button>
@@ -244,4 +247,99 @@ async function exportPDF() {
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
+}
+
+/* ── XLSX EXPORT ─────────────────────────────────────────── */
+async function exportXLSX() {
+  if (!_wnaRows.length) { toast('Tidak ada data', false); return; }
+  toast('Menyiapkan file XLSX...', true);
+
+  try {
+    /* cache foto problem (fetch dari server, bisa dipakai berulang) */
+    const _imgCache = {};
+    const fetchB64 = async (url) => {
+      if (_imgCache[url]) return _imgCache[url];
+      try {
+        const resp = await fetch(url);
+        const blob = await resp.blob();
+        return new Promise(res => {
+          const fr = new FileReader();
+          fr.onloadend = () => { _imgCache[url] = fr.result; res(fr.result); };
+          fr.readAsDataURL(blob);
+        });
+      } catch { return null; }
+    };
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Rekap WNA');
+
+    const WIDTHS = [10,24,16,16,14,13,10,12,20,28,12,16,16,28,8];
+    WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
+    /* header */
+    const hRow = ws.addRow([
+      'ID','Problem','Foto Problem','Foto Activity','PIC',
+      'Tanggal','Hari','Line','Pilihan Temuan','Deskripsi',
+      'Status','Foto Bukti','PIC Perbaikan','Desk. Perbaikan','Approved',
+    ]);
+    hRow.height = 20;
+    hRow.eachCell(cell => {
+      cell.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF1E3A5F' } };
+      cell.font      = { color:{ argb:'FFFFFFFF' }, bold: true };
+      cell.alignment = { vertical:'middle', horizontal:'center' };
+    });
+
+    const TM_SHORT = { 1:'Tidak Temuan', 2:'CM Tidak Jalan', 3:'Tidak Ada Cek' };
+
+    for (let i = 0; i < _wnaRows.length; i++) {
+      const r         = _wnaRows[i];
+      const probEntry = PROBLEMS.find(p => p.name === r.problem);
+
+      const row = ws.addRow([
+        r.id, r.problem||'', '','', r.pic||'',
+        r.tanggal||'', r.hari||'', r.line||'',
+        `${r.pilihanTemuan} - ${TM_SHORT[r.pilihanTemuan]||''}`,
+        r.deskripsi||'-', r.statusPerbaikan||'',
+        '', r.picPerbaikan||'-', r.deskripsiPerbaikan||'-',
+        r.approved ? 'Ya' : 'Tidak',
+      ]);
+      row.height = 72;
+      row.eachCell({ includeEmpty: true }, cell => {
+        cell.alignment = { vertical:'middle', wrapText: true };
+      });
+
+      const ri = row.number; /* 1-based row index */
+
+      const addImg = (src, colOneBased, ext = 'jpeg') => {
+        if (!src) return;
+        const base64 = src.replace(/^data:image\/\w+;base64,/, '');
+        const imgId  = wb.addImage({ base64, extension: ext });
+        ws.addImage(imgId, {
+          tl: { col: colOneBased - 1, row: ri - 1 },
+          br: { col: colOneBased,     row: ri     },
+          editAs: 'oneCell',
+        });
+      };
+
+      /* foto problem — fetch dari server */
+      if (probEntry) {
+        const b64 = await fetchB64(probEntry.img);
+        if (b64) addImg(b64, 3, 'png');
+      }
+
+      addImg(r.fotoActivity, 4);
+      addImg(r.fotoBukti,   12);
+    }
+
+    const buf  = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const suf  = rfBulan ? `_${String(rfBulan).padStart(2,'0')}` : '';
+    a.href = url; a.download = `WNA_Rekap_${rfTahun}${suf}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+    toast('File XLSX berhasil didownload');
+  } catch(e) {
+    toast('Gagal buat XLSX: ' + e.message, false);
+  }
 }
