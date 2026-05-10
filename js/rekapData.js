@@ -71,12 +71,20 @@ function _row(r) {
   const fotoProblem = probEntry
     ? `<img class="pt" src="${probEntry.img}" onclick="lightbox(this.src)">`
     : `<div class="np">🖼️</div>`;
-  const foto  = r.fotoActivity
-    ? `<img class="pt" src="${r.fotoActivity}" onclick="lightbox(this.src)">`
-    : `<div class="np">📷</div>`;
-  const bukti = r.fotoBukti
-    ? `<img class="pt" src="${r.fotoBukti}" onclick="lightbox(this.src)">`
-    : `<div class="np">🖼️</div>`;
+
+  const ptPh = (field, fallbackIcon) => {
+    const hasKey = 'has' + field.charAt(0).toUpperCase() + field.slice(1);
+    if (r[hasKey]) {
+      return `<button class="pt pt-ph" title="Klik lihat foto"
+              onclick="loadAndShowPhoto('${r.id}','${field}')">📷</button>`;
+    }
+    if (r[field]) { /* backward compat */
+      return `<img class="pt" src="${r[field]}" onclick="lightbox(this.src)">`;
+    }
+    return `<div class="np">${fallbackIcon}</div>`;
+  };
+  const foto  = ptPh('fotoActivity', '📷');
+  const bukti = ptPh('fotoBukti', '🖼️');
   return `
     <tr class="rt${r.pilihanTemuan}">
       <td><strong>${r.id}</strong></td>
@@ -101,6 +109,27 @@ function _row(r) {
       </td>
       <td><button class="btn btn-d btn-sm" onclick="delRec('${r.id}')">🗑</button></td>
     </tr>`;
+}
+
+/* ── LAZY PHOTO LOADER ──────────────────────────────────── */
+async function loadAndShowPhoto(id, field) {
+  const old = document.activeElement;
+  try {
+    if (old && old.tagName === 'BUTTON') {
+      old.dataset._orig = old.innerHTML;
+      old.innerHTML = '⏳';
+      old.disabled  = true;
+    }
+    const r = await DB.get(id);
+    if (r && r[field]) lightbox(r[field]);
+    else toast('Foto tidak tersedia', false);
+  } catch(e) { toast('Gagal load foto: ' + e.message, false); }
+  finally {
+    if (old && old.tagName === 'BUTTON' && old.disabled) {
+      old.disabled = false;
+      old.innerHTML = old.dataset._orig || '📷';
+    }
+  }
 }
 
 /* ── ACTIONS ─────────────────────────────────────────────── */
@@ -179,7 +208,16 @@ async function exportCSV() {
 /* ── PDF EXPORT ──────────────────────────────────────────── */
 async function exportPDF() {
   let data;
-  try { data = await DB.byYearMonth(rfTahun, rfBulan); }
+  try {
+    toast('Menyiapkan PDF (mengambil foto)...', true);
+    const all = await DB.allFull();
+    data = all.filter(r => {
+      const [y, m] = (r.tanggal || '').split('-');
+      if (rfTahun  && y !== String(rfTahun))                   return false;
+      if (rfBulan  && m !== String(rfBulan).padStart(2,'0'))   return false;
+      return true;
+    });
+  }
   catch (err) { toast(err.message, false); return; }
   if (!data.length) { toast('Tidak ada data', false); return; }
   data.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
@@ -252,9 +290,13 @@ async function exportPDF() {
 /* ── XLSX EXPORT ─────────────────────────────────────────── */
 async function exportXLSX() {
   if (!_wnaRows.length) { toast('Tidak ada data', false); return; }
-  toast('Menyiapkan file XLSX...', true);
+  toast('Menyiapkan file XLSX (mengambil foto)...', true);
 
   try {
+    /* Fetch full data with base64 images (for the filtered period) */
+    const fullList = await DB.allFull();
+    const fullMap  = new Map(fullList.map(r => [r.id, r]));
+
     /* cache foto problem (fetch dari server, bisa dipakai berulang) */
     const _imgCache = {};
     const fetchB64 = async (url) => {
@@ -293,6 +335,7 @@ async function exportXLSX() {
 
     for (let i = 0; i < _wnaRows.length; i++) {
       const r         = _wnaRows[i];
+      const full      = fullMap.get(r.id) || r;
       const probEntry = PROBLEMS.find(p => p.name === r.problem);
 
       const row = ws.addRow([
@@ -327,8 +370,8 @@ async function exportXLSX() {
         if (b64) addImg(b64, 3, 'png');
       }
 
-      addImg(r.fotoActivity, 4);
-      addImg(r.fotoBukti,   12);
+      addImg(full.fotoActivity, 4);
+      addImg(full.fotoBukti,   12);
     }
 
     const buf  = await wb.xlsx.writeBuffer();

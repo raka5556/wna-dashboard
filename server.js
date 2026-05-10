@@ -130,9 +130,25 @@ async function initPgDB() {
       const { rows } = await pool.query('SELECT COUNT(*) FROM wna_records');
       return { count: parseInt(rows[0].count) };
     },
-    async all() {
+    async all(opts = {}) {
+      if (opts.thumbs) {
+        const { rows } = await pool.query(`
+          SELECT (data - 'fotoActivity' - 'fotoBukti')
+              || jsonb_build_object(
+                   'hasFotoActivity', (data->>'fotoActivity') IS NOT NULL AND data->>'fotoActivity' != '',
+                   'hasFotoBukti',    (data->>'fotoBukti')    IS NOT NULL AND data->>'fotoBukti'    != ''
+                 ) AS data
+          FROM wna_records
+        `);
+        return rows.map(r => r.data);
+      }
       const { rows } = await pool.query('SELECT data FROM wna_records');
       return rows.map(r => r.data);
+    },
+    async get(id) {
+      const { rows } = await pool.query('SELECT data FROM wna_records WHERE id = $1', [id]);
+      if (!rows[0]) throw new Error('Not found');
+      return rows[0].data;
     },
     async add(body) {
       const id = await nextId();
@@ -232,13 +248,19 @@ async function handleAPI(req, res) {
     return jsonRes(res, 200, { ok: true, ...(await db.status()), ts: Date.now() });
   }
   if (method === 'GET' && url === '/api/records') {
-    return jsonRes(res, 200, await db.all());
+    const useThumbs = /\bthumb=1\b/.test(req.url);
+    return jsonRes(res, 200, await db.all({ thumbs: useThumbs }));
   }
   if (method === 'POST' && url === '/api/records') {
     return jsonRes(res, 201, await db.add(await readBody(req)));
   }
 
   const idMatch = url.match(/^\/api\/records\/([^/]+)$/);
+  if (method === 'GET' && idMatch) {
+    const id = decodeURIComponent(idMatch[1]);
+    try { return jsonRes(res, 200, await db.get(id)); }
+    catch (e) { return jsonRes(res, 404, { error: e.message }); }
+  }
   if (method === 'PUT' && idMatch) {
     const id = decodeURIComponent(idMatch[1]);
     return jsonRes(res, 200, await db.upd(id, await readBody(req)));
