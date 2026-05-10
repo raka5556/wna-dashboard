@@ -104,12 +104,12 @@ function renderForm() {
       <div class="ch"><span class="sec-lbl s3">Bagian 3</span><h2>Dokumentasi &amp; Temuan</h2></div>
       <div class="fgrid">
         <div class="fg full">
-          <label>Foto Activity</label>
+          <label>Foto Activity <span style="color:#f43f5e">*</span></label>
           <div class="fwrap" id="fw-act">
             <div class="fi" id="fi-act">📷</div>
             <div class="ft" id="ft-act">
               Klik atau tap untuk pilih foto<br>
-              <small style="color:var(--txt3)">JPG / PNG — maks 5 MB</small>
+              <small style="color:var(--txt3)">JPG / PNG — maks 5 MB (wajib)</small>
             </div>
             <input type="file" id="f-foto" accept="image/*"
                    onchange="handleImg(this,'prev-act','fi-act','ft-act')">
@@ -236,6 +236,7 @@ function _validate(d) {
   if (!d.tgl)  e.push('Tanggal');
   if (!d.line) e.push('Line');
   if (!d.prob) e.push('Problem');
+  if (!d.foto) e.push('Foto Activity');
   if (!d.tm)   e.push('Pilihan Temuan');
   if (!d.stat) e.push('Status Perbaikan');
   return e;
@@ -313,7 +314,7 @@ function resetFrm() {
   frm.reset();
   document.getElementById('f-tgl').value = todayStr();
   [
-    ['prev-act','fi-act','ft-act','📷','Klik atau tap untuk pilih foto','JPG / PNG — maks 5 MB'],
+    ['prev-act','fi-act','ft-act','📷','Klik atau tap untuk pilih foto','JPG / PNG — maks 5 MB (wajib)'],
     ['prev-bkt','fi-bkt','ft-bkt','🖼️','Klik atau tap untuk pilih foto bukti','JPG / PNG — maks 5 MB (opsional)'],
   ].forEach(([pid,fiid,ftid,icon,l1,l2]) => {
     const p = document.getElementById(pid); if (p) p.style.display = 'none';
