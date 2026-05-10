@@ -73,13 +73,15 @@ function _row(r) {
     : `<div class="np">🖼️</div>`;
 
   const ptPh = (field, fallbackIcon) => {
+    /* Prefer inline image (full data from /api/records) */
+    if (r[field]) {
+      return `<img class="pt" src="${r[field]}" onclick="lightbox(this.src)">`;
+    }
+    /* Fallback: has-flag → click to load (for thumb-mode responses) */
     const hasKey = 'has' + field.charAt(0).toUpperCase() + field.slice(1);
     if (r[hasKey]) {
       return `<button class="pt pt-ph" title="Klik lihat foto"
               onclick="loadAndShowPhoto('${r.id}','${field}')">📷</button>`;
-    }
-    if (r[field]) { /* backward compat */
-      return `<img class="pt" src="${r[field]}" onclick="lightbox(this.src)">`;
     }
     return `<div class="np">${fallbackIcon}</div>`;
   };

@@ -30,17 +30,17 @@ const DB = {
     return res.json();
   },
 
-  /** Return all records (array, thumbnails only — no base64 images), cached 30 s. */
+  /** Return all records (array, with images), cached 30 s. */
   async all() {
     if (this._cache && Date.now() - this._cacheTs < this._cacheTTL) {
       return this._cache;
     }
-    this._cache = await this._fetch('/records?thumb=1');
+    this._cache = await this._fetch('/records');
     this._cacheTs = Date.now();
     return this._cache;
   },
 
-  /** Fetch full list WITH base64 images (for exports). Not cached. */
+  /** Fetch full list WITH base64 images (same as all, kept for compat). */
   async allFull() {
     return this._fetch('/records');
   },
