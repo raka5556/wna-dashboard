@@ -1,0 +1,45 @@
+node_modules/
+data/
+.git/
+Downloads/
+Desktop/
+Documents/
+OneDrive/
+AppData/
+.VirtualBox/
+VirtualBox VMs/
+.cache/
+.local/
+.claude/
+.kiro/
+.semantic_search/
+.fly/
+.config/
+.thumbnails/
+sagyoukansatsu/
+3s-dashboard/
+wawasan_nusantara/
+Project makka/
+MyProject/
+spreadsheet-dashboard/
+BOM/
+IK FC D37D/
+IK FB D37D/
+1. IK FB D26A/
+1. IK FC D26A/
+*.exe
+*.zip
+*.rar
+*.msi
+*.pptx
+*.xlsx
+*.pdf
+*.mp4
+*.mov
+*.blend
+*.blend1
+*.log
+*.dat
+*.tmp
+ngrok.exe
+cloudflared.exe
