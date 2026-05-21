@@ -10,7 +10,7 @@ const DB = {
 
   _cache: null,
   _cacheTs: 0,
-  _cacheTTL: 30_000,
+  _cacheTTL: 600_000,
 
   _invalidate() {
     this._cache = null;
