@@ -1,7 +1,9 @@
+server.js
 node_modules/
 data/
 .git/
 Downloads/
+Downloads/**
 Desktop/
 Documents/
 OneDrive/
@@ -41,5 +43,18 @@ IK FB D37D/
 *.log
 *.dat
 *.tmp
+*.DAT
+*.blf
+*.regtrans-ms
+NTUSER*
+ntuser*
+Tracing/
+Apple/
+Searches/
+Saved Games/
+Links/
+Favorites/
+Contacts/
+ansel/
 ngrok.exe
 cloudflared.exe
