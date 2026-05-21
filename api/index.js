@@ -10,8 +10,9 @@ let _ready = false;
 
 function getPool() {
   if (!_pool) {
+    const raw = (process.env.DATABASE_URL || '').trim();
     _pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: raw,
       ssl: { rejectUnauthorized: false },
     });
   }
