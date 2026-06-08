@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Efisiensi Saidan | PT Fuji Seat Indonesia</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--card2:#273449;--ink:#e2e8f0;--muted:#94a3b8;
+    --line:#334155;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--accent:#38bdf8;--accentB:#a78bfa;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:18px}
+  .wrap{max-width:1400px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+    border-bottom:2px solid var(--line);padding-bottom:14px;margin-bottom:16px}
+  header h1{font-size:21px}header .sub{color:var(--muted);font-size:13px;margin-top:3px}
+  .company{text-align:right;color:var(--muted);font-size:13px}.company b{color:var(--accent);font-size:15px}
+  .tabs{display:flex;gap:8px;margin-bottom:18px}
+  .tab{background:var(--card);border:1px solid var(--line);color:var(--muted);padding:9px 18px;border-radius:10px;
+    cursor:pointer;font-size:14px;font-weight:600}
+  .tab.active{background:var(--accent);color:#06283d;border-color:var(--accent)}
+  .view{display:none}.view.active{display:block}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:13px;margin-bottom:18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden}
+  .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  .kpi .val{font-size:28px;font-weight:800;margin-top:7px;line-height:1}
+  .kpi .note{font-size:12px;margin-top:7px;color:var(--muted)}
+  .kpi .bar{position:absolute;left:0;bottom:0;height:4px;width:100%}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700}
+  .pill.good{background:rgba(34,197,94,.15);color:var(--good)}.pill.bad{background:rgba(239,68,68,.15);color:var(--bad)}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:15px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px}
+  .panel h2{font-size:14px;margin-bottom:3px}.panel .hint{color:var(--muted);font-size:12px;margin-bottom:11px}
+  .col-12{grid-column:span 12}.col-8{grid-column:span 8}.col-7{grid-column:span 7}.col-6{grid-column:span 6}
+  .col-5{grid-column:span 5}.col-4{grid-column:span 4}
+  @media(max-width:900px){[class^=col-]{grid-column:span 12}}
+  .chartbox{position:relative;height:300px}.chartbox.tall{height:340px}
+  select,input{background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+    padding:7px 10px;font-size:13px;width:100%}
+  label.fld{display:block;font-size:12px;color:var(--muted);margin:0 0 4px}
+  .formgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:700px){.formgrid{grid-template-columns:repeat(2,1fr)}}
+  .dtgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}
+  @media(max-width:700px){.dtgrid{grid-template-columns:1fr}}
+  .btn{background:var(--accent);color:#06283d;border:none;padding:10px 20px;border-radius:9px;font-weight:700;
+    cursor:pointer;font-size:14px}
+  .btn.gray{background:var(--card2);color:var(--ink);border:1px solid var(--line)}
+  .btn.red{background:var(--bad);color:#fff}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .preview{background:var(--card2);border-radius:10px;padding:12px 16px;font-size:14px}
+  .preview b{font-size:22px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  th,td{padding:7px 9px;text-align:left;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--card)}
+  tr:hover td{background:var(--card2)}
+  .tag{font-size:10.5px;padding:1px 7px;border-radius:6px}
+  .tag.excel{background:rgba(148,163,184,.18);color:var(--muted)}
+  .tag.user{background:rgba(56,189,248,.18);color:var(--accent)}
+  .mini{font-size:12px;color:var(--muted)}
+  .act{color:var(--accent);cursor:pointer;font-weight:600}.act.del{color:var(--bad)}
+  fieldset{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:14px}
+  legend{font-size:12px;color:var(--muted);padding:0 6px}
+  .scrollbox{max-height:430px;overflow:auto}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>Dashboard Monitoring Efisiensi Saidan</h1>
+      <div class="sub">Mesin Potong Line 1&ndash;5 &middot; Shift A &amp; B &middot; <b id="periode"></b></div></div>
+    <div class="company"><b>PT FUJI SEAT INDONESIA</b><br>Target Efisiensi: <b id="tgt"></b></div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-v="dash">📊 Dashboard</div>
+    <div class="tab" data-v="input">📝 Input Data</div>
+    <div class="tab" data-v="data">📋 Daftar Data</div>
+  </div>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div class="view active" id="v-dash">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid">
+      <section class="panel col-8"><h2>📈 Tren Efisiensi Harian</h2>
+        <div class="hint">Bekidoritsu per hari vs target. Pilih line/shift untuk detail.</div>
+        <div class="row" style="margin-bottom:10px"><span class="mini">Tampilkan:</span>
+          <div style="max-width:240px"><select id="selTrend"></select></div></div>
+        <div class="chartbox tall"><canvas id="cTrend"></canvas></div></section>
+      <section class="panel col-4"><h2>🏭 Efisiensi per Line</h2>
+        <div class="hint">Rata-rata, Shift A vs B.</div>
+        <div class="chartbox tall"><canvas id="cLine"></canvas></div></section>
+      <section class="panel col-7"><h2>⚠️ Pareto Penyebab Mesin Berhenti</h2>
+        <div class="hint">Total menit downtime (semua line). Fokus ke batang tertinggi.</div>
+        <div class="chartbox tall"><canvas id="cPareto"></canvas></div></section>
+      <section class="panel col-5"><h2>📅 Rekap Mingguan</h2>
+        <div class="hint">Rata-rata efisiensi per minggu, Shift A / B.</div>
+        <div class="chartbox tall"><canvas id="cWeek"></canvas></div></section>
+      <section class="panel col-12"><h2>📦 Pencapaian Produksi per Line</h2>
+        <div class="hint">Aktual vs Rencana (pcs), gabungan Shift A+B.</div>
+        <div class="chartbox"><canvas id="cProd"></canvas></div></section>
+      <section class="panel col-12"><h2>🧵 NG Proses Shima Seiki</h2>
+        <div class="hint" id="ngNote">Repair vs Scrap per item (dari Check Sheet B di tab Input Data).</div>
+        <div class="chartbox"><canvas id="cNG"></canvas></div></section>
+    </div>
+  </div>
+
+  <!-- ============ INPUT ============ -->
+  <div class="view" id="v-input">
+    <div class="grid">
+      <section class="panel col-7">
+        <h2>📝 Input / Edit Data Harian</h2>
+        <div class="hint">Isi data 1 line untuk 1 hari & 1 shift. Efisiensi dihitung otomatis (rumus sama dengan Excel).</div>
+        <div class="row" style="margin:2px 0 12px">
+          <label class="btn gray" style="cursor:pointer">⬆️ Upload CSV Mesin (auto-isi)
+            <input type="file" id="csvMc" accept=".csv,.CSV" style="display:none"></label>
+          <span class="mini">Nama file: <b>mc</b>[line][shift] &middot; mis. <b>mc1a</b> = Line 1 Shift A, <b>mc2b</b> = Line 2 Shift B</span>
+        </div>
+        <div class="formgrid">
+          <div><label class="fld">Tanggal</label><input type="date" id="i-date"></div>
+          <div><label class="fld">Shift</label><select id="i-shift"><option>A</option><option>B</option></select></div>
+          <div><label class="fld">Line</label><select id="i-line"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+          <div><label class="fld">Jml Makka</label><input type="number" id="i-makka" min="0" value="0"></div>
+          <div><label class="fld">Rencana (pcs)</label><input type="number" id="i-rencana" min="0" value="0"></div>
+          <div><label class="fld">Aktual (pcs)</label><input type="number" id="i-aktual" min="0" value="0"></div>
+          <div><label class="fld">Mulai</label><input type="time" id="i-start"></div>
+          <div><label class="fld">Selesai</label><input type="time" id="i-finish"></div>
+          <div><label class="fld">Waktu Mesin Bergerak (mnt)</label><input type="number" id="i-mesin" min="0" value="0"></div>
+          <div><label class="fld">Jam Aktual (mnt) — auto</label><input type="number" id="i-jam" readonly></div>
+        </div>
+        <fieldset><legend>Downtime Terencana (menit)</legend><div class="dtgrid" id="dt-plan"></div></fieldset>
+        <fieldset><legend>Downtime Tidak Terencana (menit)</legend><div class="dtgrid" id="dt-unplan"></div></fieldset>
+        <div class="preview" style="margin-top:14px">Efisiensi (preview): <b id="i-eff" style="color:var(--accent)">-</b>
+          <span id="i-effpill"></span></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="btnSave">💾 Simpan</button>
+          <button class="btn gray" id="btnClear">Kosongkan</button>
+          <span class="mini" id="editNote"></span>
+        </div>
+      </section>
+
+      <!-- Check Sheet Shima Seiki — Bagian A -->
+      <section class="panel col-5">
+        <h2>📋 Check Sheet — A. Problem Penyebab Stop Mesin</h2>
+        <div class="hint">Diisi MP. Mengikuti Tanggal / Line / Shift di form kiri & tersimpan saat klik 💾 Simpan.</div>
+        <table><thead><tr><th>Item Problem</th><th style="width:92px">Menit</th><th style="width:30px"></th></tr></thead>
+          <tbody id="csa-body"></tbody></table>
+        <div class="row" style="margin-top:10px;justify-content:space-between">
+          <button class="btn gray" type="button" id="btnCsaAdd">＋ Tambah baris</button>
+          <span class="mini">Total stop: <b id="csa-total" style="color:var(--warn)">0</b> menit</span>
+        </div>
+      </section>
+
+      <!-- Check Sheet Shima Seiki — Bagian B -->
+      <section class="panel col-12">
+        <h2>🧵 Check Sheet — B. Item NG Proses Shima Seiki</h2>
+        <div class="hint">Catat defect proses: Repair / Scrap / QTY. Ringkasannya muncul di tab Dashboard (panel NG).</div>
+        <table><thead><tr>
+          <th>Item Problem</th><th>Variant</th><th>Bagian</th>
+          <th style="width:80px">Repair</th><th style="width:80px">Scrap</th><th style="width:80px">QTY</th><th style="width:30px"></th>
+        </tr></thead><tbody id="csb-body"></tbody></table>
+        <div class="row" style="margin-top:10px">
+          <button class="btn gray" type="button" id="btnCsbAdd">＋ Tambah baris</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ DAFTAR DATA ============ -->
+  <div class="view" id="v-data">
+    <div class="grid">
+      <section class="panel col-12">
+        <h2>📋 Daftar Data</h2>
+        <div class="hint">Klik <span class="act">Edit</span> untuk ubah. Data Anda tersimpan di browser ini.</div>
+        <div class="row" style="margin-bottom:10px">
+          <div style="max-width:150px"><select id="fLine"><option value="">Semua Line</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+          <div style="max-width:150px"><select id="fShift"><option value="">Semua Shift</option><option>A</option><option>B</option></select></div>
+          <button class="btn gray" id="btnExportXlsx">⬇️ Export XLSX</button>
+          <button class="btn gray" id="btnExportCsv">⬇️ Export CSV</button>
+          <label class="btn gray" style="cursor:pointer">⬆️ Import JSON<input type="file" id="impFile" accept=".json" style="display:none"></label>
+          <button class="btn red" id="btnReset">🗑️ Hapus Data Input</button>
+        </div>
+        <div class="scrollbox"><table id="tbl"><thead><tr>
+          <th>Tgl</th><th>Sh</th><th>Line</th><th>Rencana</th><th>Aktual</th><th>Jam</th><th>Stop</th><th>Efisiensi</th><th>Sumber</th><th></th>
+        </tr></thead><tbody></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <footer><b id="connNote">menghubungkan…</b> &middot; Data tersimpan online (Cloudflare R2) &middot; Gunakan Export XLSX/CSV untuk backup &middot; PT Fuji Seat Indonesia</footer>
+</div>
+
+<script>
+const SEED = {"month": "", "target": 0.82, "planned": ["Ganti Mata Bor (Drill)", "Ganti Grindstone", "Ganti Piringan", "Ganti Pisau", "Pemberian Grease", "Pelumasan Oli", "Ganti Plastik", "Pembuangan (Discharge)", "2S (Resik, Ringkas)", "Teaching"], "unplanned": ["Ganti Grindstone/Drill/Piringan/Pisau", "Kendala Makka", "Project / Permintaan", "Plastik Tersangkut", "Kerusakan Mesin (Overheat Shima)", "Kerusakan Mesin (Grindstone Rusak)", "Kerusakan Mesin (Sumbu Z)", "Pisau Tidak Terangkat", "PC Tidak Merespon / Layar Blank", "Kerusakan Sensor", "Fan Belt Entangki Putus", "PC error (Entangki)", "Pisau Tidak Berputar", "Pembersihan Debu (Dust)", "lain lain"], "records": []};
+const TARGET = SEED.target;
+const LS_KEY = 'fsi_saidan_v1';
+const PCT = v => (v==null?'-':(v*100).toFixed(1)+'%');
+const C={good:'#22c55e',bad:'#ef4444',warn:'#f59e0b',accent:'#38bdf8',accentB:'#a78bfa',muted:'#94a3b8'};
+Chart.defaults.color='#94a3b8';Chart.defaults.font.family="'Segoe UI',system-ui,sans-serif";
+Chart.defaults.borderColor='rgba(148,163,184,.12)';
+document.getElementById('periode').textContent=SEED.month||'Input Baru';
+document.getElementById('tgt').textContent=(TARGET*100).toFixed(0)+'%';
+
+// ---------- data model (online via /api -> Cloudflare R2) ----------
+let USER = [];   // diisi dari server saat load
+const keyOf = r => r.date+'|'+r.line+'|'+r.shift;
+function merged(){
+  const m={};
+  SEED.records.forEach(r=>m[keyOf(r)]={...r,src:'excel'});
+  USER.forEach(r=>m[keyOf(r)]={...r,src:'user'});
+  return Object.values(m).sort((a,b)=>a.date.localeCompare(b.date)||a.shift.localeCompare(b.shift)||a.line-b.line);
+}
+function totalStop(r){return Object.values(r.dt||{}).reduce((a,b)=>a+(+b||0),0);}
+function kendala(r){return (r.dt&&r.dt['Kendala Makka'])||0;}
+function eff(r){if(r.effx!=null)return (r.effx>0&&r.effx<1.6)?r.effx:null;const j=+r.jam||0;const d=j-kendala(r);if(d<=0)return null;const e=(j-totalStop(r))/d;return (e>0&&e<1.6)?e:null;}
+// ---------- API client (data tersimpan online di Cloudflare R2) ----------
+const DB = {
+  async _j(path,opts){const r=await fetch(path,opts);if(!r.ok){let m='HTTP '+r.status;try{m=(await r.json()).error||m;}catch(_){}throw new Error(m);}return r.json();},
+  load(){return this._j('/api/data').then(j=>j.records||[]);},
+  save(rec){return this._j('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rec)});},
+  del(key){return this._j('/api/records?key='+encodeURIComponent(key),{method:'DELETE'});},
+  bulk(arr){return this._j('/api/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(arr)});},
+  reset(){return this._j('/api/reset',{method:'POST'});},
+};
+function setConn(txt,ok){const el=document.getElementById('connNote');if(el){el.textContent=txt;el.style.color=ok?'#22c55e':'#ef4444';}}
+
+// ---------- tabs ----------
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');document.getElementById('v-'+t.dataset.v).classList.add('active');
+  if(t.dataset.v==='dash') renderDash();
+});
+
+// ---------- INPUT form ----------
+const planNames=SEED.planned, unplanNames=SEED.unplanned;
+function makeDtInputs(container,names,prefix){
+  container.innerHTML=names.map((n,i)=>`<div><label class="fld" title="${n}">${n}</label>
+    <input type="number" min="0" value="0" data-dt="${n}" id="${prefix}${i}"></div>`).join('');
+}
+makeDtInputs(document.getElementById('dt-plan'),planNames,'p');
+makeDtInputs(document.getElementById('dt-unplan'),unplanNames,'u');
+const $=id=>document.getElementById(id);
+function jamFromTimes(s,f){if(!s||!f)return 0;const[a,b]=s.split(':').map(Number),[c,d]=f.split(':').map(Number);
+  let st=a*60+b,fi=c*60+d,diff=fi-st;if(diff<0)diff+=1440;return Math.max(diff-50,0);}
+function recalcJam(){const j=jamFromTimes($('i-start').value,$('i-finish').value);if(j>0)$('i-jam').value=j;updatePreview();}
+['i-start','i-finish'].forEach(id=>$(id).addEventListener('input',recalcJam));
+function formDt(){const dt={};document.querySelectorAll('[data-dt]').forEach(el=>{const v=+el.value||0;if(v>0)dt[el.dataset.dt]=v;});return dt;}
+function formRecord(){return{date:$('i-date').value,shift:$('i-shift').value,line:$('i-line').value,
+  rencana:+$('i-rencana').value||0,aktual:+$('i-aktual').value||0,jam:+$('i-jam').value||0,
+  makka:+$('i-makka').value||0,mesin:+$('i-mesin').value||0,dt:formDt(),
+  csA:collectCsa(),csB:collectCsb()};}
+function updatePreview(){const r=formRecord();const e=eff(r);$('i-eff').textContent=PCT(e);
+  $('i-effpill').innerHTML=e==null?'':(e>=TARGET?'<span class="pill good">▲ capai target</span>':'<span class="pill bad">▼ bawah target</span>');}
+document.querySelectorAll('#v-input input,#v-input select').forEach(el=>el.addEventListener('input',updatePreview));
+function clearForm(){['i-rencana','i-aktual','i-makka','i-mesin','i-jam'].forEach(id=>$(id).value=0);
+  $('i-start').value='';$('i-finish').value='';document.querySelectorAll('[data-dt]').forEach(e=>e.value=0);
+  resetCs();$('editNote').textContent='';updatePreview();}
+$('btnClear').onclick=clearForm;
+function loadToForm(r){$('i-date').value=r.date;$('i-shift').value=r.shift;$('i-line').value=r.line;
+  $('i-rencana').value=r.rencana;$('i-aktual').value=r.aktual;$('i-jam').value=r.jam;
+  $('i-makka').value=r.makka||0;$('i-mesin').value=r.mesin||0;$('i-start').value='';$('i-finish').value='';
+  document.querySelectorAll('[data-dt]').forEach(e=>e.value=(r.dt&&r.dt[e.dataset.dt])||0);
+  loadCs(r);
+  $('editNote').textContent='✏️ mengedit '+r.date+' L'+r.line+' '+r.shift;updatePreview();
+  document.querySelector('.tab[data-v=input]').click();window.scrollTo(0,0);}
+$('btnSave').onclick=async()=>{const r=formRecord();if(!r.date){alert('Isi tanggal dulu.');return;}
+  const btn=$('btnSave');btn.disabled=true;const o=btn.textContent;btn.textContent='⏳ Menyimpan…';
+  try{await DB.save(r);USER=USER.filter(x=>keyOf(x)!==keyOf(r));USER.push(r);renderTable();
+    clearForm();
+    $('editNote').textContent='✅ tersimpan online: '+r.date+' L'+r.line+' '+r.shift;}
+  catch(e){alert('Gagal menyimpan: '+e.message);}
+  finally{btn.disabled=false;btn.textContent=o;}};
+
+// ---------- Check Sheet Shima Seiki (Bagian A & B) ----------
+function csaTotal(){let t=0;document.querySelectorAll('.csa-min').forEach(i=>t+=+i.value||0);const el=$('csa-total');if(el)el.textContent=t;}
+function addCsaRow(d){const tb=$('csa-body');if(!tb)return;const tr=document.createElement('tr');
+  tr.innerHTML='<td><input type="text" class="csa-item" placeholder="Item problem…"></td>'
+    +'<td><input type="number" min="0" class="csa-min" placeholder="0"></td>'
+    +'<td style="text-align:center"><span class="act del" title="hapus baris">✕</span></td>';
+  if(d){tr.querySelector('.csa-item').value=d.item||'';tr.querySelector('.csa-min').value=d.menit||'';}
+  tr.querySelector('.act.del').onclick=()=>{tr.remove();csaTotal();};
+  tr.querySelector('.csa-min').addEventListener('input',csaTotal);
+  tb.appendChild(tr);}
+function addCsbRow(d){const tb=$('csb-body');if(!tb)return;const tr=document.createElement('tr');
+  tr.innerHTML='<td><input type="text" class="csb-item" placeholder="Item problem…"></td>'
+    +'<td><input type="text" class="csb-var" placeholder="Variant"></td>'
+    +'<td><input type="text" class="csb-bag" placeholder="Bagian"></td>'
+    +'<td><input type="number" min="0" class="csb-rep" placeholder="0"></td>'
+    +'<td><input type="number" min="0" class="csb-scr" placeholder="0"></td>'
+    +'<td><input type="number" min="0" class="csb-qty" placeholder="0"></td>'
+    +'<td style="text-align:center"><span class="act del" title="hapus baris">✕</span></td>';
+  if(d){tr.querySelector('.csb-item').value=d.item||'';tr.querySelector('.csb-var').value=d.variant||'';
+    tr.querySelector('.csb-bag').value=d.bagian||'';tr.querySelector('.csb-rep').value=d.repair||'';
+    tr.querySelector('.csb-scr').value=d.scrap||'';tr.querySelector('.csb-qty').value=d.qty||'';}
+  tr.querySelector('.act.del').onclick=()=>tr.remove();
+  tb.appendChild(tr);}
+function collectCsa(){const a=[];document.querySelectorAll('#csa-body tr').forEach(tr=>{
+  const item=(tr.querySelector('.csa-item').value||'').trim();const menit=+tr.querySelector('.csa-min').value||0;
+  if(item||menit)a.push({item,menit});});return a;}
+function collectCsb(){const a=[];document.querySelectorAll('#csb-body tr').forEach(tr=>{
+  const o={item:(tr.querySelector('.csb-item').value||'').trim(),variant:(tr.querySelector('.csb-var').value||'').trim(),
+    bagian:(tr.querySelector('.csb-bag').value||'').trim(),repair:+tr.querySelector('.csb-rep').value||0,
+    scrap:+tr.querySelector('.csb-scr').value||0,qty:+tr.querySelector('.csb-qty').value||0};
+  if(o.item||o.variant||o.bagian||o.repair||o.scrap||o.qty)a.push(o);});return a;}
+function resetCs(){if(!$('csa-body'))return;$('csa-body').innerHTML='';for(let i=0;i<4;i++)addCsaRow();csaTotal();
+  $('csb-body').innerHTML='';for(let i=0;i<3;i++)addCsbRow();}
+function loadCs(r){if(!$('csa-body'))return;$('csa-body').innerHTML='';(r.csA||[]).forEach(addCsaRow);
+  while(document.querySelectorAll('#csa-body tr').length<3)addCsaRow();csaTotal();
+  $('csb-body').innerHTML='';(r.csB||[]).forEach(addCsbRow);
+  while(document.querySelectorAll('#csb-body tr').length<2)addCsbRow();}
+$('btnCsaAdd').onclick=()=>addCsaRow();
+$('btnCsbAdd').onclick=()=>addCsbRow();
+resetCs();
+
+// ---------- table ----------
+$('fLine').onchange=$('fShift').onchange=renderTable;
+function renderTable(){
+  const fl=$('fLine').value,fs=$('fShift').value;
+  const rows=merged().filter(r=>(!fl||r.line==fl)&&(!fs||r.shift==fs));
+  $('tbl').querySelector('tbody').innerHTML=rows.map(r=>{const e=eff(r);
+    return `<tr><td>${r.date.slice(8)}/${r.date.slice(5,7)}</td><td>${r.shift}</td><td>${r.line}</td>
+      <td>${(r.rencana||0).toLocaleString('id')}</td><td>${(r.aktual||0).toLocaleString('id')}</td>
+      <td>${r.jam}</td><td>${totalStop(r)}</td>
+      <td style="color:${e==null?C.muted:(e>=TARGET?C.good:C.bad)};font-weight:700">${PCT(e)}</td>
+      <td><span class="tag ${r.src}">${r.src==='user'?'INPUT':'Excel'}</span></td>
+      <td><span class="act" data-edit="${keyOf(r)}">Edit</span> ${r.src==='user'?`&middot; <span class="act del" data-del="${keyOf(r)}">Hapus</span>`:''}</td></tr>`;
+  }).join('');
+  $('tbl').querySelectorAll('[data-edit]').forEach(el=>el.onclick=()=>{const r=merged().find(x=>keyOf(x)===el.dataset.edit);loadToForm(r);});
+  $('tbl').querySelectorAll('[data-del]').forEach(el=>el.onclick=async()=>{if(confirm('Hapus data input ini?')){try{await DB.del(el.dataset.del);USER=USER.filter(x=>keyOf(x)!==el.dataset.del);renderTable();renderDash();}catch(e){alert('Gagal hapus: '+e.message);}}});
+}
+$('btnReset').onclick=async()=>{if(confirm('Hapus SEMUA data input? Tindakan ini tidak bisa dibatalkan.')){try{await DB.reset();USER=[];renderTable();renderDash();}catch(e){alert('Gagal reset: '+e.message);}}};
+$('btnExportXlsx').onclick=()=>{const rows=merged();const causes=[...planNames,...unplanNames];
+  const head=['Tanggal','Shift','Line','Rencana','Aktual','Jam','Makka','Mesin','Efisiensi (%)',...causes];
+  const aoa=[head];rows.forEach(r=>{const e=eff(r);
+    aoa.push([r.date,r.shift,+r.line,+r.rencana||0,+r.aktual||0,+r.jam||0,+r.makka||0,+r.mesin||0,
+      (e==null?'':+(e*100).toFixed(1)),...causes.map(c=>(r.dt&&r.dt[c])||0)]);});
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=head.map((h,i)=>({wch:i<9?12:14}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Data Saidan');
+  XLSX.writeFile(wb,'data-saidan.xlsx');};
+$('btnExportCsv').onclick=()=>{const rows=merged();const causes=[...planNames,...unplanNames];
+  const head=['date','shift','line','rencana','aktual','jam','makka','mesin','efisiensi',...causes];
+  const lines=[head.join(',')];rows.forEach(r=>{const e=eff(r);
+    lines.push([r.date,r.shift,r.line,r.rencana,r.aktual,r.jam,r.makka||0,r.mesin||0,(e==null?'':(e*100).toFixed(1)),
+      ...causes.map(c=>(r.dt&&r.dt[c])||0)].join(','));});
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='data-saidan.csv';a.click();};
+$('impFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=async()=>{let arr;try{arr=JSON.parse(rd.result);if(!Array.isArray(arr))throw 0;}catch(_){alert('File tidak valid.');return;}
+    try{await DB.bulk(arr);arr.forEach(r=>{USER=USER.filter(x=>keyOf(x)!==keyOf(r));USER.push(r);});renderTable();renderDash();alert('Import '+arr.length+' data berhasil.');}
+    catch(err){alert('Gagal import: '+err.message);}};rd.readAsText(f);e.target.value='';};
+
+// ---------- Upload CSV mesin (Shima Seiki log) -> auto-isi form ----------
+// Kolom CSV: 0=no 1=file 2=length 3=width 4=num 5=cutspeed 6=mode 7=date(y/m/d)
+//            8=start 9=end 10=cuttime 11=cuttime2 12=Stop 13=Interval ...
+function tmin(t){ // "hh:mm:ss"/"mm:ss" -> menit (desimal); abaikan "--:--:--"
+  t=(t||'').trim(); if(!t||t.indexOf('--')>=0) return 0;
+  const p=t.split(':').map(Number);
+  if(p.some(isNaN)) return 0;
+  if(p.length===3) return p[0]*60+p[1]+p[2]/60;
+  if(p.length===2) return p[0]+p[1]/60;
+  return 0;
+}
+function hhmm(t){ // "5:13:01" -> "05:13" (untuk <input type=time>)
+  t=(t||'').trim(); if(!t||t.indexOf('--')>=0) return '';
+  const p=t.split(':'); if(p.length<2) return '';
+  return String(+p[0]).padStart(2,'0')+':'+String(+p[1]).padStart(2,'0');
+}
+function parseMcCsv(text,fname){
+  let rows=text.split(/\r?\n/).map(l=>l.split(','))
+              .filter(c=>c[0]&&/^\d+$/.test(c[0].trim()));   // hanya baris data (kolom 0 = nomor)
+  if(!rows.length) return null;
+  // line & shift dari nama file: "mc1a", "mc 2b", "MC3A", dst
+  let line='',shift='';
+  const m=(fname||'').toLowerCase().match(/mc\s*(\d+)\s*([ab])/);
+  if(m){line=m[1]; shift=m[2].toUpperCase();}
+  // Jam kerja resmi per shift — A(pagi)=07:00-20:00, B(malam)=20:00-07:00; baris di luar jam dibuang total
+  if(shift==='A'){
+    rows=rows.filter(c=>{const t=tmin(c[8]); return t>=420 && t<1200;}); // 420=07:00, 1200=20:00
+    if(!rows.length) return null;
+  }else if(shift==='B'){
+    rows=rows.filter(c=>{const t=tmin(c[8]); return t>=1200 || t<420;}); // 20:00 s/d 07:00 (lewat tengah malam)
+    if(!rows.length) return null;
+  }
+  // tanggal kolom 7, format y/m/d (mis. 26/05/26 = 2026-05-26)
+  let date=''; const d=(rows[0][7]||'').trim();
+  if(d){const p=d.split('/').map(s=>s.trim());
+    if(p.length===3){let y=+p[0]; if(y<100)y+=2000; date=y+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');}}
+  const start=hhmm(rows[0][8]);
+  const finish=hhmm(rows[rows.length-1][9]);
+  let mesin=0,pcs=0;
+  rows.forEach(c=>{mesin+=tmin(c[11]); const n=+c[4]; if(!isNaN(n))pcs+=n;}); // kolom 11 = cuttime2
+  return {date,start,finish,mesin:Math.round(mesin),pcs,line,shift,n:rows.length};
+}
+$('csvMc').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    let d; try{ d=parseMcCsv(rd.result,f.name); }catch(_){ d=null; }
+    if(!d){ alert('CSV mesin tidak dikenali / kosong.'); return; }
+    if(d.date)   $('i-date').value=d.date;
+    if(d.line)   $('i-line').value=d.line;
+    if(d.shift)  $('i-shift').value=d.shift;
+    if(d.start)  $('i-start').value=d.start;
+    if(d.finish) $('i-finish').value=d.finish;
+    $('i-mesin').value=d.mesin;
+    $('i-aktual').value=d.pcs;
+    $('i-makka').value=d.n;   // Jml Makka = jumlah file/baris di CSV
+    recalcJam();        // hitung Jam Aktual (mnt) dari Mulai/Selesai
+    updatePreview();
+    document.querySelector('.tab[data-v=input]').click();
+    window.scrollTo(0,0);
+    const ls=(d.line&&d.shift) ? ('Line '+d.line+' Shift '+d.shift)
+                               : '(Line/Shift tdk terbaca dari nama file — pilih manual)';
+    $('editNote').textContent='📥 CSV terbaca: '+d.n+' proses (Makka='+d.n+') · '+ls+' · '+(d.date||'tgl?')
+      +'. Lengkapi Rencana & downtime, lalu klik Simpan.';
+    e.target.value='';  // reset supaya bisa upload file yang sama lagi
+  };
+  rd.readAsText(f);
+};
+
+// ---------- DASHBOARD ----------
+const lns=['1','2','3','4','5','6'];
+function avg(a){const v=a.filter(x=>x!=null);return v.length?v.reduce((x,y)=>x+y,0)/v.length:null;}
+function weekOf(date){const d=+date.slice(8);return Math.min(Math.floor((d-1)/7),4);} // 0..4
+let charts={};
+function destroy(){Object.values(charts).forEach(c=>c&&c.destroy());charts={};}
+function renderDash(){
+  destroy();
+  const data=merged();
+  const dts=data.map(r=>r.date).sort();
+  document.getElementById('periode').textContent=dts.length?(dts[0]+' s/d '+dts[dts.length-1]):'Input Baru (belum ada data)';
+  const effs=data.map(r=>({...r,e:eff(r)})).filter(r=>r.e!=null);
+  // KPIs
+  const overall=avg(effs.map(r=>r.e));
+  let tp=0,ta=0;data.forEach(r=>{tp+=+r.rencana||0;ta+=+r.aktual||0;});
+  const prodPct=tp?ta/tp:null;
+  const causeTot={};data.forEach(r=>Object.entries(r.dt||{}).forEach(([k,v])=>causeTot[k]=(causeTot[k]||0)+(+v||0)));
+  const totDown=Object.values(causeTot).reduce((a,b)=>a+b,0);
+  const byLS={};effs.forEach(r=>{const k='L'+r.line+r.shift;(byLS[k]=byLS[k]||[]).push(r.e);});
+  let best=null,worst=null;Object.entries(byLS).forEach(([k,a])=>{const m=avg(a);
+    if(!best||m>best.m)best={k,m};if(!worst||m<worst.m)worst={k,m};});
+  const nice=k=>'Line '+k[1]+' '+k[2];
+  const card=(l,v,n,c)=>`<div class="kpi"><div class="label">${l}</div><div class="val" style="color:${c}">${v}</div><div class="note">${n}</div><div class="bar" style="background:${c}"></div></div>`;
+  const ec=overall>=TARGET?C.good:C.bad;
+  $('kpis').innerHTML=
+    card('Efisiensi Rata-rata',PCT(overall),`Target ${(TARGET*100).toFixed(0)}% ${overall>=TARGET?'<span class="pill good">▲</span>':'<span class="pill bad">▼</span>'}`,ec)
+   +card('Pencapaian Produksi',PCT(prodPct),`${ta.toLocaleString('id')} / ${tp.toLocaleString('id')} pcs`,prodPct>=1?C.good:C.warn)
+   +card('Total Downtime',(totDown/60).toFixed(1)+' jam',`${totDown.toLocaleString('id')} menit`,C.warn)
+   +card('Line Terbaik',best?nice(best.k):'-',best?PCT(best.m):'',C.accent)
+   +card('Perlu Perhatian',worst?nice(worst.k):'-',worst?PCT(worst.m)+' (terendah)':'',C.bad);
+
+  // trend selector
+  const sel=$('selTrend');const keys=[...new Set(data.map(r=>'L'+r.line+r.shift))].sort();
+  sel.innerHTML='<option value="__all">Keseluruhan (rata-rata)</option>'+keys.map(k=>`<option value="${k}">${nice(k)}</option>`).join('');
+  const days=Array.from({length:31},(_,i)=>i+1);
+  function series(val){return days.map(d=>{
+    let rs=effs.filter(r=>+r.date.slice(8)===d);if(val!=='__all')rs=rs.filter(r=>('L'+r.line+r.shift)===val);
+    return rs.length?avg(rs.map(r=>r.e)):null;});}
+  function drawTrend(val){const s=series(val).map(x=>x==null?null:x*100);
+    if(charts.trend)charts.trend.destroy();
+    charts.trend=new Chart($('cTrend'),{type:'line',data:{labels:days,datasets:[
+      {label:'Efisiensi %',data:s,borderColor:C.accent,backgroundColor:'rgba(56,189,248,.12)',fill:true,tension:.3,spanGaps:true,
+       pointRadius:3,pointBackgroundColor:s.map(v=>v==null?C.muted:(v>=TARGET*100?C.good:C.bad))},
+      {label:'Target',data:days.map(()=>TARGET*100),borderColor:C.warn,borderDash:[6,4],pointRadius:0}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{y:{suggestedMin:70,suggestedMax:110,ticks:{callback:v=>v+'%'}},x:{title:{display:true,text:'Tanggal Mei'}}},
+        plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.raw==null?'-':c.raw.toFixed(1)+'%')}}}}});}
+  sel.onchange=e=>drawTrend(e.target.value);drawTrend('__all');
+
+  // per line A vs B
+  const la=(l,s)=>{const a=effs.filter(r=>r.line==l&&r.shift==s).map(r=>r.e);const m=avg(a);return m==null?null:m*100;};
+  charts.line=new Chart($('cLine'),{type:'bar',data:{labels:lns.map(l=>'Line '+l),datasets:[
+    {label:'Shift A',data:lns.map(l=>la(l,'A')),backgroundColor:C.accent},
+    {label:'Shift B',data:lns.map(l=>la(l,'B')),backgroundColor:C.accentB}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      scales:{x:{suggestedMin:70,suggestedMax:110,ticks:{callback:v=>v+'%'}}},
+      plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.raw==null?'-':c.raw.toFixed(1)+'%')}}}}});
+
+  // pareto
+  const ce=Object.entries(causeTot).sort((a,b)=>b[1]-a[1]);let cum=0;
+  const cumPct=ce.map(e=>{cum+=e[1];return totDown?cum/totDown*100:0;});
+  charts.pareto=new Chart($('cPareto'),{data:{labels:ce.map(e=>e[0]),datasets:[
+    {type:'bar',label:'Menit',data:ce.map(e=>e[1]),backgroundColor:C.bad,yAxisID:'y',order:2},
+    {type:'line',label:'Kumulatif %',data:cumPct,borderColor:C.warn,backgroundColor:C.warn,yAxisID:'y1',tension:.2,order:1}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{y:{position:'left',title:{display:true,text:'Menit'}},
+        y1:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},ticks:{callback:v=>v+'%'}},
+        x:{ticks:{maxRotation:60,minRotation:40,font:{size:9}}}},plugins:{legend:{position:'top'}}}});
+
+  // weekly
+  function wkAvg(s){return[0,1,2,3,4].map(w=>{const a=effs.filter(r=>r.shift===s&&weekOf(r.date)===w).map(r=>r.e);
+    const m=avg(a);return m==null?null:m*100;});}
+  charts.week=new Chart($('cWeek'),{type:'bar',data:{labels:['Mgg 1','Mgg 2','Mgg 3','Mgg 4','Mgg 5'],datasets:[
+    {label:'Shift A',data:wkAvg('A'),backgroundColor:C.accent},
+    {label:'Shift B',data:wkAvg('B'),backgroundColor:C.accentB}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{y:{suggestedMin:60,suggestedMax:110,ticks:{callback:v=>v+'%'}}},
+      plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.raw==null?'-':c.raw.toFixed(1)+'%')}}}}});
+
+  // production
+  const prod=(l,f)=>{let s=0;data.filter(r=>r.line==l).forEach(r=>s+=+r[f]||0);return s;};
+  charts.prod=new Chart($('cProd'),{type:'bar',data:{labels:lns.map(l=>'Line '+l),datasets:[
+    {label:'Rencana',data:lns.map(l=>prod(l,'rencana')),backgroundColor:'rgba(148,163,184,.45)'},
+    {label:'Aktual',data:lns.map(l=>prod(l,'aktual')),backgroundColor:C.good}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{y:{title:{display:true,text:'pcs'},ticks:{callback:v=>v.toLocaleString('id')}}},
+      plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(+c.raw).toLocaleString('id')+' pcs'}}}}});
+
+  // NG Proses Shima Seiki (Check Sheet B)
+  const ngMap={};let totRep=0,totScr=0,totQty=0;
+  data.forEach(r=>(r.csB||[]).forEach(x=>{const k=x.item||x.variant||'(lain-lain)';
+    const o=ngMap[k]=ngMap[k]||{rep:0,scr:0,qty:0};
+    o.rep+=+x.repair||0;o.scr+=+x.scrap||0;o.qty+=+x.qty||0;
+    totRep+=+x.repair||0;totScr+=+x.scrap||0;totQty+=+x.qty||0;}));
+  const ngE=Object.entries(ngMap).sort((a,b)=>(b[1].rep+b[1].scr+b[1].qty)-(a[1].rep+a[1].scr+a[1].qty)).slice(0,12);
+  const ngNote=$('ngNote');
+  if(ngNote)ngNote.innerHTML=(totRep+totScr+totQty>0)
+    ?'Total Repair: <b style="color:'+C.warn+'">'+totRep+'</b> · Scrap: <b style="color:'+C.bad+'">'+totScr+'</b> · QTY: <b>'+totQty+'</b> pcs (dari Check Sheet B)'
+    :'Belum ada data NG. Isi di tab Input Data → Check Sheet B.';
+  charts.ng=new Chart($('cNG'),{type:'bar',data:{labels:ngE.map(e=>e[0]),datasets:[
+    {label:'Repair',data:ngE.map(e=>e[1].rep),backgroundColor:C.warn},
+    {label:'Scrap',data:ngE.map(e=>e[1].scr),backgroundColor:C.bad}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,ticks:{maxRotation:60,minRotation:40,font:{size:9}}},y:{stacked:true,title:{display:true,text:'pcs'}}},
+      plugins:{legend:{position:'top'}}}});
+}
+
+// init — muat data dari server (R2) dulu
+$('i-date').value=new Date().toISOString().slice(0,10);
+(async()=>{
+  try{USER=await DB.load();setConn('☁️ online',true);}
+  catch(e){setConn('⚠️ gagal konek server: '+e.message,false);}
+  renderTable();renderDash();
+})();
+</script>
+</body>
+</html>
