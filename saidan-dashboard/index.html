@@ -63,6 +63,25 @@
   legend{font-size:12px;color:var(--muted);padding:0 6px}
   .scrollbox{max-height:430px;overflow:auto}
   footer{color:var(--muted);font-size:12px;text-align:center;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+  /* ===== Penyesuaian layar HP ===== */
+  @media(max-width:600px){
+    body{padding:10px}
+    header{padding-bottom:10px;margin-bottom:12px}
+    header h1{font-size:17px}header .sub{font-size:12px}
+    .company{text-align:left;font-size:12px}.company b{font-size:13px}
+    .tabs{flex-wrap:wrap;gap:6px;margin-bottom:12px}
+    .tab{flex:1 1 auto;text-align:center;padding:9px 10px;font-size:13px}
+    .grid{gap:11px}
+    .kpis{grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:12px}
+    .kpi{padding:12px 13px}.kpi .val{font-size:21px}.kpi .label{font-size:11px}.kpi .note{font-size:11px}
+    .panel{padding:12px 13px}.panel h2{font-size:13px}
+    .formgrid{grid-template-columns:repeat(2,1fr);gap:9px}
+    .chartbox{height:240px}.chartbox.tall{height:260px}
+    table{font-size:11.5px}th,td{padding:5px 6px}
+    .btn{padding:9px 14px;font-size:13px}
+    .row{gap:8px}
+  }
+  @media(max-width:380px){.kpis{grid-template-columns:1fr}.formgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -123,7 +142,7 @@
           <div><label class="fld">Line</label><select id="i-line"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
           <div><label class="fld">Jml Makka</label><input type="number" id="i-makka" min="0" value="0"></div>
           <div><label class="fld">Rencana (pcs)</label><input type="number" id="i-rencana" min="0" value="0"></div>
-          <div><label class="fld">Aktual (pcs)</label><input type="number" id="i-aktual" min="0" value="0"></div>
+          <div><label class="fld">Aktual (pcs) — isi manual</label><input type="number" id="i-aktual" min="0" value="0"></div>
           <div><label class="fld">Mulai</label><input type="time" id="i-start"></div>
           <div><label class="fld">Selesai</label><input type="time" id="i-finish"></div>
           <div><label class="fld">Waktu Mesin Bergerak (mnt)</label><input type="number" id="i-mesin" min="0" value="0"></div>
@@ -156,10 +175,10 @@
       <section class="panel col-12">
         <h2>🧵 Check Sheet — B. Item NG Proses Shima Seiki</h2>
         <div class="hint">Catat defect proses: Repair / Scrap / QTY. Ringkasannya muncul di tab Dashboard (panel NG).</div>
-        <table><thead><tr>
+        <div style="overflow-x:auto"><table style="min-width:560px"><thead><tr>
           <th>Item Problem</th><th>Variant</th><th>Bagian</th>
           <th style="width:80px">Repair</th><th style="width:80px">Scrap</th><th style="width:80px">QTY</th><th style="width:30px"></th>
-        </tr></thead><tbody id="csb-body"></tbody></table>
+        </tr></thead><tbody id="csb-body"></tbody></table></div>
         <div class="row" style="margin-top:10px">
           <button class="btn gray" type="button" id="btnCsbAdd">＋ Tambah baris</button>
         </div>
@@ -275,11 +294,16 @@ $('btnSave').onclick=async()=>{const r=formRecord();if(!r.date){alert('Isi tangg
 
 // ---------- Check Sheet Shima Seiki (Bagian A & B) ----------
 function csaTotal(){let t=0;document.querySelectorAll('.csa-min').forEach(i=>t+=+i.value||0);const el=$('csa-total');if(el)el.textContent=t;}
+const CSA_OPTS='<option value="">— pilih item —</option>'
+  +'<optgroup label="Downtime Terencana">'+planNames.map(n=>'<option>'+n+'</option>').join('')+'</optgroup>'
+  +'<optgroup label="Downtime Tidak Terencana">'+unplanNames.map(n=>'<option>'+n+'</option>').join('')+'</optgroup>';
 function addCsaRow(d){const tb=$('csa-body');if(!tb)return;const tr=document.createElement('tr');
-  tr.innerHTML='<td><input type="text" class="csa-item" placeholder="Item problem…"></td>'
+  tr.innerHTML='<td><select class="csa-item">'+CSA_OPTS+'</select></td>'
     +'<td><input type="number" min="0" class="csa-min" placeholder="0"></td>'
     +'<td style="text-align:center"><span class="act del" title="hapus baris">✕</span></td>';
-  if(d){tr.querySelector('.csa-item').value=d.item||'';tr.querySelector('.csa-min').value=d.menit||'';}
+  if(d){const s=tr.querySelector('.csa-item');s.value=d.item||'';
+    if(d.item&&s.value!==d.item){s.insertAdjacentHTML('beforeend','<option>'+d.item+'</option>');s.value=d.item;}
+    tr.querySelector('.csa-min').value=d.menit||'';}
   tr.querySelector('.act.del').onclick=()=>{tr.remove();csaTotal();};
   tr.querySelector('.csa-min').addEventListener('input',csaTotal);
   tb.appendChild(tr);}
@@ -406,7 +430,7 @@ $('csvMc').onchange=e=>{
     if(d.start)  $('i-start').value=d.start;
     if(d.finish) $('i-finish').value=d.finish;
     $('i-mesin').value=d.mesin;
-    $('i-aktual').value=d.pcs;
+    // Aktual (pcs) sengaja TIDAK diisi dari CSV — diketik manual oleh operator
     $('i-makka').value=d.n;   // Jml Makka = jumlah file/baris di CSV
     recalcJam();        // hitung Jam Aktual (mnt) dari Mulai/Selesai
     updatePreview();
@@ -415,7 +439,7 @@ $('csvMc').onchange=e=>{
     const ls=(d.line&&d.shift) ? ('Line '+d.line+' Shift '+d.shift)
                                : '(Line/Shift tdk terbaca dari nama file — pilih manual)';
     $('editNote').textContent='📥 CSV terbaca: '+d.n+' proses (Makka='+d.n+') · '+ls+' · '+(d.date||'tgl?')
-      +'. Lengkapi Rencana & downtime, lalu klik Simpan.';
+      +'. Isi Aktual (pcs) manual, lengkapi Rencana & downtime, lalu klik Simpan.';
     e.target.value='';  // reset supaya bisa upload file yang sama lagi
   };
   rd.readAsText(f);
